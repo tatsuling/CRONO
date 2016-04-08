@@ -10,6 +10,7 @@
 #include <cassert>
 #include <vector>
 #include <list>
+#include "../ptlcalls.h"
 using std::vector;
 using std::list;
 //#include "carbon_user.h"        /*For the Graphite Simulator*/
@@ -384,6 +385,8 @@ int main(int argc, char** argv)
    for (int i = 0; i < NUM_THREADS; i++)
       thread_data[i] = new ThreadData(i, work_queue_vec[i], NUM_CITIES);
 
+   ptlcall_switch_to_sim();
+
    // Enable Graphite performance and power models
    //CarbonEnableModels();
 
@@ -404,6 +407,8 @@ int main(int argc, char** argv)
    {
       pthread_join(thread_handle[i], NULL);
    }
+
+   ptlcall_switch_to_native();
 
    // Disable Graphite performance and power models
    //CarbonDisableModels();
