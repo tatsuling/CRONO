@@ -385,7 +385,9 @@ int main(int argc, char** argv)
    for (int i = 0; i < NUM_THREADS; i++)
       thread_data[i] = new ThreadData(i, work_queue_vec[i], NUM_CITIES);
 
+#ifdef ENABLE_PTLCALLS
    ptlcall_switch_to_sim();
+#endif
 
    // Enable Graphite performance and power models
    //CarbonEnableModels();
@@ -408,7 +410,9 @@ int main(int argc, char** argv)
       pthread_join(thread_handle[i], NULL);
    }
 
+#ifdef ENABLE_PTLCALLS
    ptlcall_switch_to_native();
+#endif
 
    // Disable Graphite performance and power models
    //CarbonDisableModels();

@@ -183,7 +183,9 @@ int main(int argc, char** argv)
    struct timespec requestStart, requestEnd;
    clock_gettime(CLOCK_REALTIME, &requestStart);
 
+#ifdef ENABLE_PTLCALLS
    ptlcall_switch_to_sim();
+#endif
 
    // Enable Graphite performance and energy models
    //CarbonEnableModels();
@@ -207,7 +209,9 @@ int main(int argc, char** argv)
    // Disable Graphite performance and energy models
    //CarbonDisableModels();
 
+#ifdef ENABLE_PTLCALLS
    ptlcall_switch_to_native();
+#endif
 
    printf("\nThreads Joined!");
 
