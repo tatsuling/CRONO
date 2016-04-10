@@ -5,7 +5,7 @@
 #include <time.h>
 #include <sys/timeb.h>
 #include <string.h>
-#include "../ptlcalls.h"
+#include "roi.h"
 
 #define MAX            100000000
 #define INT_MAX        100000000
@@ -378,9 +378,7 @@ int main(int argc, char** argv)
    struct timespec requestStart, requestEnd;
    clock_gettime(CLOCK_REALTIME, &requestStart);
 
-#ifdef ENABLE_PTLCALLS
-   ptlcall_switch_to_sim();
-#endif
+   roi_begin();
 
    // Enable Graphite performance and energy models
    //CarbonEnableModels();
@@ -399,9 +397,7 @@ int main(int argc, char** argv)
       pthread_join(thread_handle[j],NULL);
    }
 
-#ifdef ENABLE_PTLCALLS
-   ptlcall_switch_to_native();
-#endif
+   roi_end();
 
    // Disable Graphite performance and energy models
    //CarbonDisableModels();

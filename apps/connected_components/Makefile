@@ -1,18 +1,6 @@
-
 TRGS = connected_components
+LIBS += -lpthread -lrt -lroi
 
-LIBS += -lpthread -lrt
+include $(CRONO_DIR)/Makefile.inc
 
-CXXFLAGS = -g --std=c++0x -O2
-CXXFLAGS += -Wall -Werror
-CXXFLAGS += -DENABLE_PTLCALLS
-
-all: $(TRGS)
-
-connected_components: connected_components.cc
-
-clean:
-	rm -f $(TRGS) *.o *.dot
-
-%: %.cc ;
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LIBS)
+connected_components: connected_components.o

@@ -1,13 +1,18 @@
-SUBDIRS= apsp bc sssp community connected_components dfs bfs pagerank triangle_counting tsp
+APPS= apsp bc sssp community connected_components dfs bfs pagerank triangle_counting tsp
 
-CRONO_DIR=$(PWD)
+export CRONO_DIR=$(PWD)
 
-all:
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $(CRONO_DIR)/apps/$$dir; \
+SUBDIRS=$(addprefix $(CRONO_DIR)/apps/,$(APPS))
+.PHONY: all clean
+.PHONY: $(SUBDIRS)
+.PHONY: libs
+
+all: libs $(SUBDIRS)
+	for dir in $^; do \
+		$(MAKE) $(MAKECMDGOALS) -C $$dir; \
 	done
 
-clean:
-	for dir in $(SUBDIRS); do \
-		$(MAKE) clean -C $(CRONO_DIR)/apps/$$dir; \
+clean: libs $(SUBDIRS)
+	for dir in $^; do \
+		$(MAKE) $(MAKECMDGOALS) -C $$dir; \
 	done

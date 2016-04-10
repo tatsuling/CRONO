@@ -9,7 +9,7 @@
 //#include "carbon_user.h"  /*For the Graphite Simulator*/
 #include <time.h>
 #include <sys/timeb.h>
-#include "../ptlcalls.h"
+#include "roi.h"
 
 #define MAX            100000000
 #define INT_MAX        100000000
@@ -183,9 +183,7 @@ int main(int argc, char** argv)
    struct timespec requestStart, requestEnd;
    clock_gettime(CLOCK_REALTIME, &requestStart);
 
-#ifdef ENABLE_PTLCALLS
-   ptlcall_switch_to_sim();
-#endif
+   roi_begin();
 
    // Enable Graphite performance and energy models
    //CarbonEnableModels();
@@ -209,9 +207,7 @@ int main(int argc, char** argv)
    // Disable Graphite performance and energy models
    //CarbonDisableModels();
 
-#ifdef ENABLE_PTLCALLS
-   ptlcall_switch_to_native();
-#endif
+   roi_end();
 
    printf("\nThreads Joined!");
 
