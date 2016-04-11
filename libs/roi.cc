@@ -26,6 +26,12 @@ void roi_begin() {
     #endif
 
     #ifdef ENABLE_PTLCALLS
+    char * snapshot_name = getenv("SNAPSHOT");
+    ptlcall_checkpoint_and_shutdown( snapshot_name );
+
+    std::cout << ROI_PREFIX " Entering SIMULATION" << std::endl;
+    std::cout.flush();
+
     ptlcall_switch_to_sim();
     #endif
 }
@@ -33,7 +39,7 @@ void roi_begin() {
 void roi_end() {
     #ifdef ENABLE_PTLCALLS
     ptlcall_switch_to_native();
-    #endif //ENABLE_PTLSIM_TRIGGER
+    #endif
 
     #if ENABLE_TIMING
     struct timeval t;
