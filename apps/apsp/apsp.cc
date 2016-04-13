@@ -1,3 +1,4 @@
+// vim: ts=3 sw=3
 /*
   Program adopted from Parallel MiBench
 */
@@ -35,8 +36,6 @@ typedef struct
 
 //Function Declarations
 int initialize_single_source(int* D, int* Q, int source, int N);
-void relax(int u, int i, volatile int* D, int** W, int** W_index, int N);
-int get_local_min(volatile int* Q, volatile int* D, int start, int stop, int N, int** W_index, int** W, int u);
 void init_weights(int N, int DEG, int** W, int** W_index);
 
 //Global Variables
@@ -78,31 +77,35 @@ void* do_work(void* args)
       node = next_source;
       pthread_mutex_unlock(&lock);  
 
-      //Memory allocations
-      int *D;
-      int *Q;
-      if (posix_memalign((void**) &D, 64, N * sizeof(int))) 
+      if ( node < N ) 
       {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-      if ( posix_memalign((void**) &Q, 64, N * sizeof(int)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-      //Initialize distance arrays
-      initialize_single_source(D, Q, node, N);
 
-      //Relax all edges, Bellman-Ford type
-      for(v=0;v<N;v++)
-      {
-         for(int i = 0; i < DEG; i++)
+         //Memory allocations
+         int *D;
+         int *Q;
+         if (posix_memalign((void**) &D, 64, N * sizeof(int))) 
          {
-            if((D[W_index[v][i]] > (D[v] + W[v][i])))
-               D[W_index[v][i]] = D[v] + W[v][i];
+            fprintf(stderr, "Allocation of memory failed\n");
+            exit(EXIT_FAILURE);
+         }
+         if ( posix_memalign((void**) &Q, 64, N * sizeof(int)))
+         {
+            fprintf(stderr, "Allocation of memory failed\n");
+            exit(EXIT_FAILURE);
+         }
+         //Initialize distance arrays
+         initialize_single_source(D, Q, node, N);
 
-            Q[v]=0; //Current vertex checked
+         //Relax all edges, Bellman-Ford type
+         for(v=0;v<N;v++)
+         {
+            for(int i = 0; i < DEG; i++)
+            {
+               if((D[W_index[v][i]] > (D[v] + W[v][i])))
+                  D[W_index[v][i]] = D[v] + W[v][i];
+
+               Q[v]=0; //Current vertex checked
+            }
          }
       }
    }
@@ -229,7 +232,8 @@ int initialize_single_source(int*  D,
       int   source,
       int   N)
 {
-   for(int i = 0; i < N+1; i++)
+   // GL: D and Q are of size N, 0 to N-1 are valid indexes
+   for(int i = 0; i < N; i++)
    {
       D[i] = INT_MAX;  //all distances infinite
       Q[i] = 1;
@@ -237,30 +241,6 @@ int initialize_single_source(int*  D,
 
    D[source] = 0;      //source distance 0
    return 0;
-}
-
-//Get local min vertex to jump to in the next iteration
-int get_local_min(volatile int* Q, volatile int* D, int start, int stop, int N, int** W_index, int** W, int u)
-{
-   int min = INT_MAX;
-   int min_index = N;
-
-   for(int i = start; i < stop; i++) 
-   {
-      if(D[i] < min && Q[i])  //if current edge has the smallest distance
-      {
-         min = D[i];
-         min_index = W_index[u][i];
-      }
-   }
-   return min_index;          //return smallest edge
-}
-
-//Relax : updates distance based on the current vertex
-void relax(int u, int i, volatile int* D, int** W, int** W_index, int N)
-{
-   if((D[W_index[u][i]] > (D[u] + W[u][i]) && (W_index[u][i]!=-1 && W_index[u][i]<N && W[u][i]!=INT_MAX)))
-      D[W_index[u][i]] = D[u] + W[u][i];
 }
 
 //Graph initializer
@@ -311,18 +291,10 @@ void init_weights(int N, int DEG, int** W, int** W_index)
       for(int j = 0; j < DEG; j++)
       {
          double v = drand48();
-         /*if(v > 0.8 || W_index[i][j] == -1)
-           {       W[i][j] = MAX;
-           W_index[i][j] = -1;
-           }
-
-           else*/ if(W_index[i][j] == i)
-         W[i][j] = 0;
-
+         if(W_index[i][j] == i)
+            W[i][j] = 0;
          else
             W[i][j] = (int) (v*100) + 1;
-         //printf("   %d  ",W_index[i][j]);
       }
-      //printf("\n");
    }
 }
