@@ -77,35 +77,33 @@ void* do_work(void* args)
       node = next_source;
       pthread_mutex_unlock(&lock);  
 
-      if ( node < N ) 
+      if ( node >= N ) break;
+
+      //Memory allocations
+      int *D;
+      int *Q;
+      if (posix_memalign((void**) &D, 64, N * sizeof(int))) 
       {
+         fprintf(stderr, "Allocation of memory failed\n");
+         exit(EXIT_FAILURE);
+      }
+      if ( posix_memalign((void**) &Q, 64, N * sizeof(int)))
+      {
+         fprintf(stderr, "Allocation of memory failed\n");
+         exit(EXIT_FAILURE);
+      }
+      //Initialize distance arrays
+      initialize_single_source(D, Q, node, N);
 
-         //Memory allocations
-         int *D;
-         int *Q;
-         if (posix_memalign((void**) &D, 64, N * sizeof(int))) 
+      //Relax all edges, Bellman-Ford type
+      for(v=0;v<N;v++)
+      {
+         for(int i = 0; i < DEG; i++)
          {
-            fprintf(stderr, "Allocation of memory failed\n");
-            exit(EXIT_FAILURE);
-         }
-         if ( posix_memalign((void**) &Q, 64, N * sizeof(int)))
-         {
-            fprintf(stderr, "Allocation of memory failed\n");
-            exit(EXIT_FAILURE);
-         }
-         //Initialize distance arrays
-         initialize_single_source(D, Q, node, N);
+            if((D[W_index[v][i]] > (D[v] + W[v][i])))
+               D[W_index[v][i]] = D[v] + W[v][i];
 
-         //Relax all edges, Bellman-Ford type
-         for(v=0;v<N;v++)
-         {
-            for(int i = 0; i < DEG; i++)
-            {
-               if((D[W_index[v][i]] > (D[v] + W[v][i])))
-                  D[W_index[v][i]] = D[v] + W[v][i];
-
-               Q[v]=0; //Current vertex checked
-            }
+            Q[v]=0; //Current vertex checked
          }
       }
    }
