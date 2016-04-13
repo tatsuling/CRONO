@@ -1,3 +1,4 @@
+// vim: ts=3 sw=3
 /*
   Program adopted from Parallel MiBench All Pairs Shortest Path
   Assumption : An entity (UAV) using this program practically needs shortest paths before making a decision.
@@ -110,6 +111,8 @@ void* do_work(void* args)
       node = next_source;
       //printf("\n %d",next_source);
       pthread_mutex_unlock(&lock);
+
+      if ( node >= N ) break;
 
       int *D;
       int *Q;
@@ -327,7 +330,8 @@ int initialize_single_source(int*  D,
       int   source,
       int   N)
 {
-   for(int i = 0; i < N+1; i++)
+   // GL: D and Q are of size N, 0 to N-1 are valid indexes
+   for(int i = 0; i < N; i++)
    {
       D[i] = INT_MAX;   //all distances infinite
       Q[i] = 1;
