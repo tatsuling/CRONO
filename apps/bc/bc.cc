@@ -1,4 +1,4 @@
-// vim: ts=3 sw=3
+// vim: ts=3 sw=3 sts=0 smarttab expandtab
 /*
   Program adopted from Parallel MiBench All Pairs Shortest Path
   Assumption : An entity (UAV) using this program practically needs shortest paths before making a decision.
@@ -11,11 +11,9 @@
 //#include "carbon_user.h"  /*For the Graphite Simulator*/
 #include <time.h>
 #include <sys/timeb.h>
+#include <iostream>
 #include "roi.h"
-
-#define MAX            100000000
-#define INT_MAX        100000000
-#define BILLION 1E9
+#include "graph.h"
 
 //Thread Argument Structure
 typedef struct
@@ -35,12 +33,6 @@ typedef struct
    pthread_barrier_t* barrier_total;
    pthread_barrier_t* barrier;
 } thread_arg_t;
-
-//Function Declarations
-int initialize_single_source(int* D, int* Q, int source, int N);
-void relax(int u, int i, volatile int* D, int** W, int** W_index, int N);
-int get_local_min(volatile int* Q, volatile int* D, int start, int stop, int N, int** W_index, int** W, int u);
-void init_weights(int N, int DEG, int** W, int** W_index);
 
 //Global Variables
 int min = INT_MAX;
@@ -117,17 +109,12 @@ void* do_work(void* args)
       int *D;
       int *Q;
 
-      if(posix_memalign((void**) &D, 64, N * sizeof(int)))
+      if ( create_distance_list(N, &D, &Q) != 0 )
       {
-         fprintf(stderr, "Allocation of memory failed\n");
+         std::cerr << "Allocation of memory failed" << std::endl;
          exit(EXIT_FAILURE);
       }
-      if(posix_memalign((void**) &Q, 64, N * sizeof(int)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-
+        
       initialize_single_source(D, Q, node, N);
 
       for(v=0;v<N;v++)
@@ -180,10 +167,18 @@ void* do_work(void* args)
    return NULL;
 }
 
+void usage(char **argv)
+{
+   std::cerr << "usage:" << std::endl;
+   std::cerr << "\t" << argv[0] << " <threads> <N> <DEG>" << std::endl;
+   exit(EXIT_FAILURE);
+}
 
 int main(int argc, char** argv)
 { 
    //Input arguments
+   if ( argc < 4 ) usage(argv);
+
    const int P1 = atoi(argv[1]);
    const int N = atoi(argv[2]);
    const int DEG = atoi(argv[3]);
@@ -195,7 +190,7 @@ int main(int argc, char** argv)
 
    if (DEG > N)
    {
-      fprintf(stderr, "Degree of graph cannot be grater than number of Vertices\n");
+      std::cerr << "Degree of graph cannot be grater than number of Vertices" << std::endl;
       exit(EXIT_FAILURE);
    }
 
@@ -278,14 +273,7 @@ int main(int argc, char** argv)
       thread_arg[j].barrier    = &barrier;
    }
    
-   //Measure CPU time
-   struct timespec requestStart, requestEnd;
-   clock_gettime(CLOCK_REALTIME, &requestStart);
-
    roi_begin();
-
-   // Enable Graphite performance and energy models
-   //CarbonEnableModels();
 
    //Spawn Threads
    for(int j = 1; j < P1; j++) {
@@ -296,8 +284,6 @@ int main(int argc, char** argv)
    }
    do_work((void*) &thread_arg[0]);  //Main thread spawns itself
 
-   printf("\nThreads Returned!");
-
    //Join Threads
    for(int j = 1; j < P1; j++) { //mul = mul*2;
       pthread_join(thread_handle[j],NULL);
@@ -305,127 +291,6 @@ int main(int argc, char** argv)
 
    roi_end();
 
-   // Disable Graphite performance and energy models
-   //CarbonDisableModels();
-
-   printf("\nThreads Joined!");
-
-   clock_gettime(CLOCK_REALTIME, &requestEnd);
-   double accum = ( requestEnd.tv_sec - requestStart.tv_sec ) + ( requestEnd.tv_nsec - requestStart.tv_nsec ) / BILLION;
-   printf( "\nTime: %lf seconds\n", accum );
-
-   //printf("\ndistance:%d \n",D[N-1]);
-
-   /*for(int i = 0; i < N; i++) {
-     printf(" %d ", D[i]);
-     }
-     printf("\n");
-     */
    return 0;
 }
 
-//Distance initializations
-int initialize_single_source(int*  D,
-      int*  Q,
-      int   source,
-      int   N)
-{
-   // GL: D and Q are of size N, 0 to N-1 are valid indexes
-   for(int i = 0; i < N; i++)
-   {
-      D[i] = INT_MAX;   //all distances infinite
-      Q[i] = 1;
-   }
-
-   D[source] = 0;       //source distance 0
-   return 0; 
-}
-
-//Get local min vertex to jump to in the next iteration
-int get_local_min(volatile int* Q, volatile int* D, int start, int stop, int N, int** W_index, int** W, int u)
-{
-   int min = INT_MAX;
-   int min_index = N;
-
-   for(int i = start; i < stop; i++) 
-   {
-      if(D[i] < min && Q[i])         //if current edge has the smallest distance
-      {
-         min = D[i];
-         min_index = W_index[u][i];
-      }
-   }
-   return min_index;                 //return smallest edge
-}
-
-//Relax : updates distance based on the current vertex
-void relax(int u, int i, volatile int* D, int** W, int** W_index, int N)
-{
-   if((D[W_index[u][i]] > (D[u] + W[u][i]) && (W_index[u][i]!=-1 && W_index[u][i]<N && W[u][i]!=INT_MAX)))
-      D[W_index[u][i]] = D[u] + W[u][i];
-}
-
-//Graph initializer
-void init_weights(int N, int DEG, int** W, int** W_index)
-{
-   // Initialize to -1
-   for(int i = 0; i < N; i++)
-      for(int j = 0; j < DEG; j++)
-         W_index[i][j]= -1;
-
-   // Populate Index Array
-   for(int i = 0; i < N; i++)
-   {
-      int last = 0;
-      for(int j = 0; j < DEG; j++)
-      {
-         if(W_index[i][j] == -1)
-         {
-            //W_index[i][j] = rand()%DEG;
-            int neighbor = i + j;//rand()%(max);
-            if(neighbor > last)
-            {
-               W_index[i][j] = neighbor;
-               last = W_index[i][j];
-            }
-            else
-            {
-               if(last < (N-1))
-               {
-                  W_index[i][j] = (last + 1);
-                  last = W_index[i][j];
-               }
-            }
-         }
-         else
-         {
-            last = W_index[i][j];
-         }
-         if(W_index[i][j]>=N)
-         {
-            W_index[i][j] = N-1;
-         }
-      }
-   }
-
-   // Populate Cost Array
-   for(int i = 0; i < N; i++)
-   {
-      for(int j = 0; j < DEG; j++)
-      {
-         double v = drand48();
-         /*if(v > 0.8 || W_index[i][j] == -1)
-           {       W[i][j] = MAX;
-           W_index[i][j] = -1;
-           }
-
-           else*/ if(W_index[i][j] == i)
-         W[i][j] = 0;
-
-         else
-            W[i][j] = (int) (v*10) + 1;
-         //printf("   %d  ",W[i][j]);
-      }
-      //printf("\n");
-   }
-}

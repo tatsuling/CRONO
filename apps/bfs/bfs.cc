@@ -1,3 +1,4 @@
+// vim: ts=3 sw=3 sts=0 smarttab expandtab
 /*
     Distributed Under the MIT license
 	Uses vertex coloring to distinguish searches
@@ -11,11 +12,7 @@
 #include <time.h>
 #include <sys/timeb.h>
 #include "roi.h"
-
-#define MAX            100000000
-#define INT_MAX        100000000
-// #define DEBUG              1
-#define BILLION 1E9
+#include "graph.h"
 
 //Thread Argument Structure
 typedef struct
@@ -34,10 +31,6 @@ typedef struct
    pthread_barrier_t* barrier_total;
    pthread_barrier_t* barrier;
 } thread_arg_t;
-
-//Function Initializers
-int initialize_single_source(int* D, int* Q, int source, int N);
-void init_weights(int N, int DEG, int** W, int** W_index);
 
 //Global Variables
 pthread_mutex_t lock;            //single lock
@@ -214,19 +207,10 @@ int main(int argc, char** argv)
 
    int** W = (int**) malloc(N*sizeof(int*));
    int** W_index = (int**) malloc(N*sizeof(int*));
-   for(int i = 0; i < N; i++)
+   if ( create_weight_graph( N, DEG, &W, &W_index) != 0 )
    {
-      //W[i] = (int *)malloc(sizeof(int)*N);
-      if(posix_memalign((void**) &W[i], 64, DEG*sizeof(int)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-      if(posix_memalign((void**) &W_index[i], 64, DEG*sizeof(int)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
+      fprintf(stderr, "Could not allocate memory\n");
+      exit(EXIT_FAILURE);
    }
 
    //Memory initialization
@@ -324,13 +308,6 @@ int main(int argc, char** argv)
       thread_arg[j].barrier    = &barrier;
    }
 
-   // Enable Graphite performance and energy models
-   //CarbonEnableModels();
-
-   //CPU Time
-   struct timespec requestStart, requestEnd;
-   clock_gettime(CLOCK_REALTIME, &requestStart);
-
    roi_begin();
 
    //Spawn Threads
@@ -349,102 +326,6 @@ int main(int argc, char** argv)
 
    roi_end();
 
-   printf("\nThreads Joined!");
-
-   clock_gettime(CLOCK_REALTIME, &requestEnd);
-   double accum = ( requestEnd.tv_sec - requestStart.tv_sec ) + ( requestEnd.tv_nsec - requestStart.tv_nsec ) / BILLION;
-   printf( "\nTime Taken:\n%lf seconds", accum );
-
-   // Disable Graphite performance and energy models
-   //CarbonDisableModels();
-
-   //Print Result
-   /*for(int j=0;j<largest;j++)
-   {
-     if(exist[j]==1) printf(" %d ",Q[j]);
-   }*/
-
    return 0;
 }
 
-int initialize_single_source(int*  D,
-      int*  Q,
-      int   source,
-      int   N)
-{
-   for(int i = 0; i < N+1; i++)
-   {
-      D[i] = 0;
-      Q[i] = 1;
-   }
-
-   D[source] = 1;
-   Q[source] = 0;
-   return 0;
-}
-
-
-void init_weights(int N, int DEG, int** W, int** W_index)
-{
-   // Initialize to -1
-   for(int i = 0; i < N; i++)
-      for(int j = 0; j < DEG; j++)
-         W_index[i][j]= -1;
-
-   // Populate Index Array
-   for(int i = 0; i < N; i++)
-   {
-      int last = 0;
-      for(int j = 0; j < DEG; j++)
-      {
-         if(W_index[i][j] == -1)
-         {        
-            int neighbor = i+j;
-            //W_index[i][j] = i+j;//rand()%(DEG);
-
-            if(neighbor > last)
-            {
-               W_index[i][j] = neighbor;
-               last = W_index[i][j];
-            }
-            else
-            {
-               if(last < (N-1))
-               {
-                  W_index[i][j] = (last + 1);
-                  last = W_index[i][j];
-               }
-            }
-         }
-         else
-         {
-            last = W_index[i][j];
-         }
-         if(W_index[i][j]>=N)
-         {
-            W_index[i][j] = N-1;
-         }
-      }
-   }
-
-   // Populate Cost Array
-   for(int i = 0; i < N; i++)
-   {
-      for(int j = 0; j < DEG; j++)
-      {
-         double v = drand48();
-         /*if(v > 0.8 || W_index[i][j] == -1)
-           {       W[i][j] = MAX;
-           W_index[i][j] = -1;
-           }
-
-           else*/ if(W_index[i][j] == i)
-         W[i][j] = 0;
-
-         else
-            W[i][j] = (int) (v*100) + 1;
-         //printf("   %d  ",W_index[i][j]);
-      }
-      //printf("\n");
-   }
-}

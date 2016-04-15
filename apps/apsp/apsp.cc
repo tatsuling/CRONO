@@ -1,4 +1,4 @@
-// vim: ts=3 sw=3
+// vim: ts=3 sw=3 sts=0 smarttab expandtab
 /*
   Program adopted from Parallel MiBench
 */
@@ -10,7 +10,9 @@
 //#include "carbon_user.h"  /*For the Graphite Simulator*/
 #include <time.h>
 #include <sys/timeb.h>
+#include <iostream>
 #include "roi.h"
+#include "graph.h"
 
 #define MAX            100000000
 #define INT_MAX        100000000
@@ -34,9 +36,6 @@ typedef struct
    pthread_barrier_t* barrier;
 } thread_arg_t;
 
-//Function Declarations
-int initialize_single_source(int* D, int* Q, int source, int N);
-void init_weights(int N, int DEG, int** W, int** W_index);
 
 //Global Variables
 int min = INT_MAX;    //For local mins
@@ -112,9 +111,18 @@ void* do_work(void* args)
    return NULL;
 }
 
+void usage(char **argv)
+{
+   std::cerr << "usage:" << std::endl;
+   std::cerr << "\t" << argv[0] << " <threads> <N> <DEG>" << std::endl;
+   exit(EXIT_FAILURE);
+}
+
 int main(int argc, char** argv)
 {
    //Input arguments
+   if ( argc < 4 ) usage(argv);
+
    const int P1 = atoi(argv[1]);
    const int N = atoi(argv[2]);
    const int DEG = atoi(argv[3]);
@@ -123,10 +131,9 @@ int main(int argc, char** argv)
    start = P1;
    P = P1;
 
-
    if (DEG > N)
    {
-      fprintf(stderr, "Degree of graph cannot be grater than number of Vertices\n");
+      std::cerr << "Degree of graph cannot be grater than number of Vertices" << std::endl;
       exit(EXIT_FAILURE);
    }
 
@@ -138,19 +145,12 @@ int main(int argc, char** argv)
    pthread_barrier_t barrier_total;
    pthread_barrier_t barrier;
 
-   //Memory allocations for the input graph
-   int** W = (int**) malloc(N*sizeof(int*));
-   int** W_index = (int**) malloc(N*sizeof(int*));
-   for(int i = 0; i < N; i++)
+   int** W;
+   int** W_index;
+   if ( create_weight_graph( N, DEG, &W, &W_index) != 0 )
    {
-      //W[i] = (int *)malloc(sizeof(int)*N);
-      int ret = posix_memalign((void**) &W[i], 64, DEG*sizeof(int));
-      int re1 = posix_memalign((void**) &W_index[i], 64, DEG*sizeof(int));
-      if (ret != 0 || re1!=0)
-      {
-         fprintf(stderr, "Could not allocate memory\n");
-         exit(EXIT_FAILURE);
-      }
+      fprintf(stderr, "Could not allocate memory\n");
+      exit(EXIT_FAILURE);
    }
    
    //Initialize random graph
@@ -180,14 +180,7 @@ int main(int argc, char** argv)
       thread_arg[j].barrier    = &barrier;
    }
 
-   //Measure CPU time
-   struct timespec requestStart, requestEnd;
-   clock_gettime(CLOCK_REALTIME, &requestStart);
-
    roi_begin();
-
-   // Enable Graphite performance and energy models
-   //CarbonEnableModels();
 
    //Spawn Threads
    for(int j = 1; j < P1; j++) {
@@ -198,101 +191,14 @@ int main(int argc, char** argv)
    }
    do_work((void*) &thread_arg[0]);
 
-   printf("\nThreads Returned!");
-
    //Join Threads
-   for(int j = 1; j < P1; j++) { //mul = mul*2;
+   for(int j = 1; j < P1; j++) 
+   {
       pthread_join(thread_handle[j],NULL);
    }
 
-   // Disable Graphite performance and energy models
-   //CarbonDisableModels();
-
    roi_end();
 
-   printf("\nThreads Joined!");
-
-   clock_gettime(CLOCK_REALTIME, &requestEnd);
-   double accum = ( requestEnd.tv_sec - requestStart.tv_sec ) + ( requestEnd.tv_nsec - requestStart.tv_nsec ) / BILLION;
-   printf( "\nTime: %lf seconds\n", accum );
-
-   /*for(int i = 0; i < N; i++) {
-     printf(" %d ", D[i]);
-     }
-     printf("\n");
-     */
    return 0;
 }
 
-//Distance initializations
-int initialize_single_source(int*  D,
-      int*  Q,
-      int   source,
-      int   N)
-{
-   // GL: D and Q are of size N, 0 to N-1 are valid indexes
-   for(int i = 0; i < N; i++)
-   {
-      D[i] = INT_MAX;  //all distances infinite
-      Q[i] = 1;
-   }
-
-   D[source] = 0;      //source distance 0
-   return 0;
-}
-
-//Graph initializer
-void init_weights(int N, int DEG, int** W, int** W_index)
-{
-   // Initialize to -1
-   for(int i = 0; i < N; i++)
-      for(int j = 0; j < DEG; j++)
-         W_index[i][j]= -1;
-
-   // Populate Index Array
-   for(int i = 0; i < N; i++)
-   {
-      int last = 0;
-      for(int j = 0; j < DEG; j++)
-      {
-         if(W_index[i][j] == -1)
-         {
-            int neighbor = i + j;//rand()%(max);
-            if(neighbor > last)
-            {
-               W_index[i][j] = neighbor;
-               last = W_index[i][j];
-            }
-            else
-            {
-               if(last < (N-1))
-               {
-                  W_index[i][j] = (last + 1);
-                  last = W_index[i][j];
-               }
-            }
-         }
-         else
-         {
-            last = W_index[i][j];
-         }
-         if(W_index[i][j]>=N)
-         {
-            W_index[i][j] = N-1;
-         }
-      }
-   }
-
-   // Populate Cost Array
-   for(int i = 0; i < N; i++)
-   {
-      for(int j = 0; j < DEG; j++)
-      {
-         double v = drand48();
-         if(W_index[i][j] == i)
-            W[i][j] = 0;
-         else
-            W[i][j] = (int) (v*100) + 1;
-      }
-   }
-}
