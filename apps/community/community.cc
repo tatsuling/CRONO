@@ -1,14 +1,13 @@
+// vim: ts=3 sw=3 sts=0 smarttab expandtab
 #include <cstdio>
 #include <cstdlib>
 #include <pthread.h>
 //#include "carbon_user.h"       /*For the Graphite Simulator*/
 #include <time.h>
 #include <sys/timeb.h>
+#include <iostream>
 #include "roi.h"
-
-#define MAX            100000000
-#define INT_MAX        100000000
-#define BILLION 1E9
+#include "graph.h"
 
 //Thread Argument Structure
 typedef struct
@@ -29,10 +28,6 @@ typedef struct
    pthread_barrier_t* barrier_total;
    pthread_barrier_t* barrier;
 } thread_arg_t;
-
-//Function declarations
-int initialize_single_source(int* D, float* Q, int source, int N);
-void init_weights(int N, int DEG, float** W, int** W_index);
 
 //Global Variables
 pthread_mutex_t lock;                          //single lock
@@ -288,36 +283,20 @@ int main(int argc, char** argv)
    }
    int d_count = N;
 
-   float** W = (float**) malloc(N*sizeof(float*));
-   int** W_index = (int**) malloc(N*sizeof(int*));
-   for(int i = 0; i < N; i++)
+   // GL: W was a float
+   int** W;
+   int** W_index;
+   if ( create_weight_graph( N, DEG, &W, &W_index ) != 0 )
    {
-      //W[i] = (int *)malloc(sizeof(int)*N);
-      if(posix_memalign((void**) &W[i], 64, DEG*sizeof(float)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-      if(posix_memalign((void**) &W_index[i], 64, DEG*sizeof(int)))
-      {
-         fprintf(stderr, "Allocation of memory failed\n");
-         exit(EXIT_FAILURE);
-      }
-   } printf("\nMemory Allocated");
+      std::cout << "Allocation of memory failed" << std::endl;
+      exit(EXIT_FAILURE);
+   }
+
+   init_weights( N, DEG, W, W_index );
 
    //Memory initializations
    for(int i=0;i<N;i++)
    {
-      for(int j=0;j<DEG;j++)
-      {
-         //W[i][j] = 1000000000;
-         W_index[i][j] = INT_MAX;
-         double v = drand48();
-         if(W_index[i][j] == i)
-            W[i][j] = 0;
-         else
-            W[i][j] = (int) (v*100) +1;
-      }
       edges[i]=0;
       exist[i]=0;
    }
@@ -449,81 +428,3 @@ int main(int argc, char** argv)
    return 0;
 }
 
-int initialize_single_source(int*  D,
-      float*  Q,
-      int   source,
-      int   N)
-{
-   for(int i = 0; i < N+1; i++)
-   {
-      D[i] = 0;
-      Q[i] = 0;
-   }
-
-   return 0;
-}
-
-void init_weights(int N, int DEG, float** W, int** W_index)
-{
-   // Initialize to -1
-   for(int i = 0; i < N; i++)
-      for(int j = 0; j < DEG; j++)
-         W_index[i][j]= -1;
-
-   // Populate Index Array
-   for(int i = 0; i < N; i++)
-   {
-      int last = 0;
-      for(int j = 0; j < DEG; j++)
-      {
-         if(W_index[i][j] == -1)
-         {        
-            int neighbor = i+j;
-            //W_index[i][j] = i+j;//rand()%(DEG);
-
-            if(neighbor > last)
-            {
-               W_index[i][j] = neighbor;
-               last = W_index[i][j];
-            }
-            else
-            {
-               if(last < (N-1))
-               {
-                  W_index[i][j] = (last + 1);
-                  last = W_index[i][j];
-               }
-            }
-         }
-         else
-         {
-            last = W_index[i][j];
-         }
-         if(W_index[i][j]>=N)
-         {
-            W_index[i][j] = N-1;
-         }
-      }
-   }
-
-   // Populate Cost Array
-   for(int i = 0; i < N; i++)
-   {
-      for(int j = 0; j < DEG; j++)
-      {
-         double v = drand48();
-         /*if(v > 0.8 || W_index[i][j] == -1)
-           {       W[i][j] = MAX;
-           W_index[i][j] = -1;
-           }
-
-           else*/ if(W_index[i][j] == i)
-         W[i][j] = 0;
-
-         else
-            W[i][j] = (int) (v*100) + 1;
-         //printf("   %d  ",W_index[i][j]);
-      }
-      //printf("\n");
-   }
-}

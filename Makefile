@@ -1,6 +1,9 @@
 # vim: noexpandtab
 
-TARGETS += apsp bc bfs
+TARGETS += apsp 
+TARGETS += bc 
+TARGETS += bfs 
+#TARGETS += community
 LDLIBS += -lpthread -lrt
 
 all:
@@ -13,6 +16,7 @@ BINDIR=bin
 sources += apps/apsp/apsp.cc
 sources += apps/bc/bc.cc
 sources += apps/bfs/bfs.cc
+#sources += apps/community/community.cc
 
 sources += apps/common/graph.cc
 sources += apps/roi/roi.cc
@@ -20,6 +24,7 @@ sources += apps/roi/roi.cc
 $(BINDIR)/apsp: apps/apsp/apsp.o apps/common/graph.o apps/roi/roi.o
 $(BINDIR)/bc: apps/bc/bc.o apps/common/graph.o apps/roi/roi.o
 $(BINDIR)/bfs: apps/bfs/bfs.o apps/common/graph.o apps/roi/roi.o
+#$(BINDIR)/community: apps/community/community.o apps/common/graph.o apps/roi/roi.o
 
 apps/roi/roi.o: CPPFLAGS += -DENABLE_PTLCALLS
 apps/roi/roi.o: CPPFLAGS += -DENABLE_TIMING
@@ -49,10 +54,10 @@ clean:
 		*.dot $(LIBDIR)/*.a
 
 %.d: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MF $@ -MP -MT $(addsuffix .o,$(basename $<)) -c $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MF $@ -MP -MT $(addsuffix .o,$(basename $<)) -E -c $< >/dev/null
 
 %.d: %.cc
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MF $@ -MP -MT $(addsuffix .o,$(basename $<)) -c $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MF $@ -MP -MT $(addsuffix .o,$(basename $<)) -E -c $< >/dev/null
 	
 %.o: %.c
 	@$(MD) $(@D)
