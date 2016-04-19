@@ -24,17 +24,17 @@ void roi_begin() {
     std::cout << stringify(ROI_PREFIX) " Entering ROI" << std::endl;
     std::cout.flush();
 
-    #ifdef ENABLE_TIMING
-    struct timeval t;
-    gettimeofday(&t,NULL);
-    time_begin = (double)t.tv_sec+(double)t.tv_usec*1e-6;
-    #endif
-
     #ifdef ENABLE_PTLCALLS
     char * snapshot_name = getenv("SNAPSHOT");
     if ( snapshot_name ) {
         ptlcall_checkpoint_and_shutdown( snapshot_name );
     }
+    #endif
+
+    #ifdef ENABLE_TIMING
+    struct timeval t;
+    gettimeofday(&t,NULL);
+    time_begin = (double)t.tv_sec+(double)t.tv_usec*1e-6;
     #endif
 
     #ifdef ENABLE_PTLCALLS
